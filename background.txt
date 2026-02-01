@@ -1,0 +1,238 @@
+import pygame  # type: ignore
+import sys
+import json
+import os
+import random
+from datetime import datetime
+
+# Initialize Pygame
+pygame.init()
+screen_width = 1920
+screen_height = 1080
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Advanced Cat Simulator")
+
+# Load Background Images
+background_images = {
+    "lake": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/lake.png"), (screen_width, screen_height)),
+    "market": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/market.png"), (screen_width, screen_height)),
+    "park": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/park.png"), (screen_width, screen_height)),
+    "street": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/street.png"), (screen_width, screen_height)),
+    "forest": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/forest.png"), (screen_width, screen_height)),
+    "garden": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/garden.png"), (screen_width, screen_height)),
+    "home": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/home.png"), (screen_width, screen_height)),
+    "hill": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/hill.png"), (screen_width, screen_height)),
+    "road": pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/road.png"), (screen_width, screen_height)),
+}
+
+# Load NPC images
+man = pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/man.png"), (50, 100))
+woman = pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/woman.png"), (50, 100))
+
+# Load sound effects and music
+pygame.mixer.init()
+pygame.mixer.music.load("C:/Users/giorgos sani/Desktop/cat simulator/I Go Meow.mp3")
+meow_sound = pygame.mixer.Sound("C:/Users/giorgos sani/Desktop/cat simulator/Meow Sound Effect.wav")
+
+# Define paths for resources
+cat_skins = [
+    "C:/Users/giorgos sani/Desktop/cat simulator/cat1.png",
+    "C:/Users/giorgos sani/Desktop/cat simulator/cat2.png",
+    "C:/Users/giorgos sani/Desktop/cat simulator/cat3.png"
+]
+dog_image = pygame.transform.scale(pygame.image.load("C:/Users/giorgos sani/Desktop/cat simulator/dog.png"), (120, 120))
+dog_rect = dog_image.get_rect(center=(random.randint(100, 1820), random.randint(100, 980)))
+
+# Variables for cat, game state, and settings
+current_skin = 0
+cat_image = pygame.transform.scale(pygame.image.load(cat_skins[current_skin]), (100, 100))
+cat_rect = cat_image.get_rect(center=(960, 540))
+
+# Define scenes
+scenes = {
+    "home": {"background": "home", "npcs": 2, "foods": 3, "up": None, "down": "garden", "left": None, "right": "street"},
+    "garden": {"background": "garden", "npcs": 3, "foods": 5, "up": "home", "down": "park", "left": None, "right": "lake"},
+    "street": {"background": "street", "npcs": 1, "foods": 2, "up": None, "down": None, "left": "home", "right": "market"},
+    "park": {"background": "park", "npcs": 2, "foods": 4, "up": "garden", "down": None, "left": "forest", "right": None},
+    "lake": {"background": "lake", "npcs": 1, "foods": 3, "up": None, "down": None, "left": "garden", "right": "forest"},
+    "forest": {"background": "forest", "npcs": 2, "foods": 5, "up": None, "down": None, "left": "lake", "right": "park"},
+    "market": {"background": "market", "npcs": 4, "foods": 6, "up": None, "down": None, "left": "street", "right": None},
+}
+current_scene = "home"
+hunger = 100
+
+# Game state
+food_items = []
+npc_list = []
+SAVE_FILE = "cat_game_save.json"
+dog_active = False
+
+# Load and save game data
+def load_game():
+    global hunger
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, "r") as file:
+            data = json.load(file)
+            cat_rect.x = data.get("cat_x", 960)
+            cat_rect.y = data.get("cat_y", 540)
+            global current_skin
+            current_skin = data.get("skin", 0)
+            hunger = data.get("hunger", 100)
+        return True
+    return False
+
+def save_game():
+    data = {
+        "cat_x": cat_rect.x,
+        "cat_y": cat_rect.y,
+        "skin": current_skin,
+        "hunger": hunger,
+    }
+    with open(SAVE_FILE, "w") as file:
+        json.dump(data, file)
+
+# Create food and NPC items based on scene
+def create_food_and_npcs(scene_data):
+    global food_items, npc_list
+    food_items = [pygame.Rect(random.randint(100, 1800), random.randint(100, 900), 20, 20) for _ in range(scene_data["foods"])]
+    npc_list = [{"rect": pygame.Rect(random.randint(100, 1800), random.randint(100, 900), 50, 50), "dialogue": "Hello there!"} for _ in range(scene_data["npcs"])]
+
+# Transition scenes and load new environments
+def load_scene(scene_name):
+    global current_scene
+    current_scene = scene_name
+    scene_data = scenes[scene_name]
+    create_food_and_npcs(scene_data)
+
+# NPC movement
+def move_npcs():
+    for npc in npc_list:
+        npc["rect"].x += random.choice([-1, 1]) * random.uniform(0.5, 2)
+        npc["rect"].y += random.choice([-1, 1]) * random.uniform(0.5, 2)
+
+# Handle food collection
+def check_food_collisions():
+    global hunger
+    for food in food_items[:]:
+        if cat_rect.colliderect(food):
+            food_items.remove(food)
+            hunger = min(100, hunger + 20)  # Increase hunger by 20, maxing out at 100
+
+# Dog interaction logic
+def dog_interaction():
+    global dog_active, hunger
+    if cat_rect.colliderect(dog_rect):
+        dog_active = True
+        hunger = max(0, hunger - 10)
+
+# Menu screen function
+def show_main_menu():
+    pygame.mixer.music.play(-1)  # Loop the menu music
+    font = pygame.font.Font(None, 100)
+    title_text = font.render("Advanced Cat Simulator", True, (255, 255, 255))
+    start_text = font.render("Press ENTER to Start", True, (255, 255, 255))
+    quit_text = font.render("Press ESC to Quit", True, (255, 255, 255))
+
+    while True:
+        screen.fill((0, 0, 0))
+        screen.blit(title_text, (640, 300))
+        screen.blit(start_text, (640, 500))
+        screen.blit(quit_text, (640, 600))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    pygame.mixer.music.stop()  # Stop the menu music
+                    return  # Start the game
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
+# Main game loop
+def game_loop():
+    clock = pygame.time.Clock()
+    load_game()
+    global hunger, dog_active
+    hunger = 100  # Start hunger at maximum (100)
+    dog_active = False  # Start with no dog in the scene
+
+    # Load the initial scene
+    load_scene(current_scene)
+    
+    try:
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    save_game()
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        save_game()
+                        pygame.quit()
+                        sys.exit()
+                    elif event.key == pygame.K_SPACE:
+                        meow_sound.play()
+                        if dog_active:
+                            dog_active = False
+                            print("Dog scared away by meowing!")
+
+            # Fill the screen with the current background
+            current_background = background_images[scenes[current_scene]["background"]]
+            screen.blit(current_background, (0, 0))
+
+            # Draw food items
+            for food in food_items:
+                pygame.draw.circle(screen, (255, 255, 0), (food.x + 10, food.y + 10), 10)
+
+            # Draw NPCs
+            for npc in npc_list:
+                pygame.draw.rect(screen, (255, 0, 0), npc["rect"])
+
+            # Draw cat
+            screen.blit(cat_image, cat_rect)
+
+            # Draw dog if active
+            if dog_active:
+                screen.blit(dog_image, dog_rect)
+
+            # Handle movement
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_w] and cat_rect.top > 0:
+                cat_rect.y -= 5
+            if keys[pygame.K_s] and cat_rect.bottom < screen.get_height():
+                cat_rect.y += 5
+            if keys[pygame.K_a] and cat_rect.left > 0:
+                cat_rect.x -= 5
+            if keys[pygame.K_d] and cat_rect.right < screen.get_width():
+                cat_rect.x += 5
+
+            # Collision detection with food and dog
+            check_food_collisions()
+            dog_interaction()
+
+            # Update display
+            pygame.display.flip()
+            clock.tick(60)
+
+            # Slow hunger depletion
+            hunger -= 0.01
+
+            # If hunger reaches 0
+            if hunger <= 0:
+                hunger = 0  # Prevent hunger from going negative
+                print("The cat is too hungry to move! Find food to restore energy.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        pygame.quit()
+        sys.exit()
+
+# Run the game
+if __name__ == "__main__":
+    show_main_menu()
+    game_loop()

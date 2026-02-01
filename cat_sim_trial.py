@@ -1,0 +1,639 @@
+import pygame  # type: ignore
+import sys
+import json
+import os
+import random
+from datetime import datetime
+import random
+
+# Initialize Pygame
+pygame.init()
+screen_width = 1920
+screen_height = 1080
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Advanced Cat Simulator")
+
+# Load Background Images
+lake = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\lake.png")
+market = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\market.png")
+park = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\park.png")
+street = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\street.png")
+forest = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\forest.png")
+garden = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\garden.png")
+home = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\home.png")
+hill = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\hill.png")
+road = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\road.png")
+
+# Resize images if necessary to fit the screen
+lake = pygame.transform.scale(lake, (screen_width, screen_height))
+market = pygame.transform.scale(market, (screen_width, screen_height))
+park = pygame.transform.scale(park, (screen_width, screen_height))
+street = pygame.transform.scale(street, (screen_width, screen_height))
+forest = pygame.transform.scale(forest, (screen_width, screen_height))
+garden = pygame.transform.scale(garden, (screen_width, screen_height))
+home = pygame.transform.scale(home, (screen_width, screen_height))
+hill = pygame.transform.scale(hill, (screen_width, screen_height))
+road = pygame.transform.scale(road, (screen_width, screen_height))
+
+# Load NPC images
+man = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\man.png")
+woman = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\woman.png")
+
+# Resize them to fit your game
+man = pygame.transform.scale(man, (50, 100))  # Resize to desired NPC size
+woman = pygame.transform.scale(woman, (50, 100))  # Resize to desired NPC size
+
+# Load sound effects and music
+pygame.mixer.init()
+pygame.mixer.music.load(r"C:\Users\giorgos sani\Desktop\cat simulator\I Go Meow.mp3")
+meow_sound = pygame.mixer.Sound(r"C:\Users\giorgos sani\Desktop\cat simulator\Meow Sound Effect.wav")
+
+# Define paths for resources
+cat_skins = [
+    "C:/Users/giorgos sani/Desktop/cat simulator/cat1.png",
+    "C:/Users/giorgos sani/Desktop/cat simulator/cat2.png",
+    "C:/Users/giorgos sani/Desktop/cat simulator/cat3.png"
+]
+dog_image = pygame.image.load(r"C:\Users\giorgos sani\Desktop\cat simulator\dog.png")
+dog_image = pygame.transform.scale(dog_image, (120, 120))
+dog_rect = dog_image.get_rect(center=(random.randint(100, 1820), random.randint(100, 980)))
+
+# Variables for cat, game state, and settings
+current_skin = 0
+cat_image = pygame.image.load(cat_skins[current_skin])
+cat_image = pygame.transform.scale(cat_image, (100, 100))
+cat_rect = cat_image.get_rect(center=(960, 540))
+
+
+# Define scenes with up, down, left, right connections and transition zones
+# Added 'transitions' key to define specific transition areas
+scenes = {
+    "home": {
+        "background": (139, 69, 19),
+        "npcs": 2,
+        "foods": 3,
+        "weather": "sunny",
+        "up": None,
+        "down": "garden",
+        "left": None,
+        "right": "street",
+        "transitions": {
+            "down": pygame.Rect(800, 1050, 320, 30),  # Bottom center
+            "right": pygame.Rect(1850, 400, 30, 280)  # Right center
+        }
+    },
+    "garden": {
+        "background": (34, 139, 34),
+        "npcs": 3,
+        "foods": 5,
+        "weather": "rain",
+        "up": "home",
+        "down": "park",
+        "left": None,
+        "right": "lake",
+        "transitions": {
+            "up": pygame.Rect(800, -30, 320, 30),    # Top center
+            "down": pygame.Rect(800, 1050, 320, 30),  # Bottom center
+            "right": pygame.Rect(1850, 400, 30, 280)  # Right center
+        }
+    },
+    "street": {
+        "background": (50, 50, 50),
+        "npcs": 1,
+        "foods": 2,
+        "weather": "night",
+        "up": None,
+        "down": None,
+        "left": "home",
+        "right": "market",
+        "transitions": {
+            "left": pygame.Rect(-30, 400, 30, 280),   # Left center
+            "right": pygame.Rect(1850, 400, 30, 280)  # Right center
+        }
+    },
+    "park": {
+        "background": (60, 179, 113),
+        "npcs": 2,
+        "foods": 4,
+        "weather": "sunny",
+        "up": "garden",
+        "down": None,
+        "left": "forest",
+        "right": None,
+        "transitions": {
+            "up": pygame.Rect(800, -30, 320, 30),    # Top center
+            "left": pygame.Rect(-30, 400, 30, 280)   # Left center
+        }
+    },
+    "lake": {
+        "background": (70, 130, 180),
+        "npcs": 1,
+        "foods": 3,
+        "weather": "cloudy",
+        "up": None,
+        "down": None,
+        "left": "garden",
+        "right": "forest",
+        "transitions": {
+            "left": pygame.Rect(-30, 400, 30, 280),   # Left center
+            "right": pygame.Rect(1850, 400, 30, 280)  # Right center
+        }
+    },
+    "forest": {
+        "background": (34, 139, 34),
+        "npcs": 2,
+        "foods": 5,
+        "weather": "rain",
+        "up": None,
+        "down": None,
+        "left": "lake",
+        "right": "park",
+        "transitions": {
+            "left": pygame.Rect(-30, 400, 30, 280),   # Left center
+            "right": pygame.Rect(1850, 400, 30, 280)  # Right center
+        }
+    },
+    "market": {
+        "background": (160, 82, 45),
+        "npcs": 4,
+        "foods": 6,
+        "weather": "sunny",
+        "up": None,
+        "down": None,
+        "left": "street",
+        "right": None,
+        "transitions": {
+            "left": pygame.Rect(-30, 400, 30, 280)    # Left center
+        }
+    },
+}
+current_scene = "home"
+cat_speed = 5
+hunger = 100
+
+# Game state
+food_items = []
+npc_list = []
+SAVE_FILE = "cat_game_save.json"
+dog_active = False
+
+# Rain effect: initialize raindrops once
+raindrops = [pygame.Rect(random.randint(0, 1920), random.randint(0, 1080), 2, 10) for _ in range(100)]
+
+# Load and save game data
+
+def load_game():
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, "r") as file:
+            data = json.load(file)
+            cat_rect.x = data.get("cat_x", 960)  # Default to 960 if key is missing
+            cat_rect.y = data.get("cat_y", 540)  # Default to 540 if key is missing
+            global current_skin, hunger
+            current_skin = data.get("skin", 0)  # Default to 0 if key is missing
+            hunger = data.get("hunger", 100)  # Default to 100 if key is missing
+        return True
+    return False
+
+def save_game():
+    data = {
+        "cat_x": cat_rect.x,
+        "cat_y": cat_rect.y,
+        "skin": current_skin,  # This line should correctly save the skin
+        "hunger": hunger,
+    }
+    with open(SAVE_FILE, "w") as file:
+        json.dump(data, file)
+
+# Create food and NPC items based on scene
+def create_food_and_npcs(scene_data):
+    global food_items, npc_list
+    food_items = [pygame.Rect(random.randint(100, 1800), random.randint(100, 900), 20, 20) for _ in range(scene_data["foods"])]
+    npc_list = [{"rect": pygame.Rect(random.randint(100, 1800), random.randint(100, 900), 50, 50), "dialogue": "Hello there!"} for _ in range(scene_data["npcs"])]
+
+# Transition scenes and load new environments
+def load_scene(scene_name, direction):
+    global current_scene
+    current_scene = scene_name
+    scene_data = scenes[scene_name]
+    create_food_and_npcs(scene_data)
+
+    # Position the cat based on the direction of transition
+    if direction == "left":
+        cat_rect.right = screen.get_width() - 1
+    elif direction == "right":
+        cat_rect.left = 1
+    elif direction == "up":
+        cat_rect.bottom = screen.get_height() - 1
+    elif direction == "down":
+        cat_rect.top = 1
+
+# NPC movement
+def move_npcs():
+    for npc in npc_list:
+        npc["rect"].x += random.choice([-1, 1]) * random.uniform(0.5, 2)
+        npc["rect"].y += random.choice([-1, 1]) * random.uniform(0.5, 2)
+
+# Handle food collection
+def check_food_collisions():
+    global hunger
+    for food in food_items[:]:
+        if cat_rect.colliderect(food):
+            food_items.remove(food)
+            hunger = min(100, hunger + 20)
+
+# Dog interaction logic
+def dog_interaction():
+    global dog_active, hunger
+    if cat_rect.colliderect(dog_rect):
+        dog_active = True
+        hunger = max(0, hunger - 10)
+
+# Menu screen function
+def show_main_menu():
+    pygame.mixer.music.play(-1)  # Loop the menu music
+    font = pygame.font.Font(None, 100)
+    title_text = font.render("Advanced Cat Simulator", True, (255, 255, 255))
+    start_text = font.render("Press ENTER to Start", True, (255, 255, 255))
+    quit_text = font.render("Press ESC to Quit", True, (255, 255, 255))
+
+    while True:
+        screen.fill((0, 0, 0))
+        screen.blit(title_text, (640, 300))
+        screen.blit(start_text, (640, 500))
+        screen.blit(quit_text, (640, 600))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    pygame.mixer.music.stop()  # Stop the menu music
+                    return  # Start the game
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
+# Main game loop
+def game_loop():
+    clock = pygame.time.Clock()
+    load_game()
+    global hunger, dog_active
+    hunger = 100  # Start hunger at maximum (100)
+    dog_active = False  # Start with no dog in the scene
+    current_background = lake  # Default background
+
+    # Load the initial scene
+    load_scene(current_scene, None)
+    cat_speed = 4
+    cat_rect = pygame.Rect(100, 100, 50, 50)  # Example position of the cat
+
+    try:
+        while True:
+            start_ticks = pygame.time.get_ticks()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    save_game()
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        save_game()
+                        pygame.quit()
+                        sys.exit()
+                    elif event.key == pygame.K_SPACE:
+                        meow_sound.play()
+                        if dog_active:
+                            # Scare away the dog if it's close to the cat
+                            dog_active = False
+                            print("Dog scared away by meowing!")
+            # Fill the screen with a color (optional, we will replace with an image below)
+            screen.fill((0, 0, 0))
+            # Example: Switch backgrounds based on conditions
+            if cat_rect.x < 300:
+                current_background = park
+            elif cat_rect.x > 300 and cat_rect.x < 600:
+                current_background = market
+            else:
+                current_background = street            
+            
+            # Display the current background
+            screen.blit(current_background, (0, 0))
+            
+            # Display NPCs (e.g., man and woman)
+            screen.blit(man, (200, 400))  # Display the man NPC at position (200, 400)
+            screen.blit(woman, (500, 400))  # Display the woman NPC at position (500, 400) 
+            # Draw other game elements like the cat, roads, etc.
+            pygame.draw.rect(screen, (255, 255, 0), cat_rect)  # Example of drawing the cat (yellow rectangle) 
+            # Update the display
+            pygame.display.flip()
+                              
+            # Handle movement only if hunger is above a certain threshold
+            keys = pygame.key.get_pressed()
+            if hunger > 5:  # Allow movement only if hunger is above 5
+                if (keys[pygame.K_w] or keys[pygame.K_UP]) and cat_rect.top > 0:
+                    cat_rect.y -= cat_speed
+                if (keys[pygame.K_s] or keys[pygame.K_DOWN]) and cat_rect.bottom < screen.get_height():
+                    cat_rect.y += cat_speed
+                if (keys[pygame.K_a] or keys[pygame.K_LEFT]) and cat_rect.left > 0:
+                    cat_rect.x -= cat_speed
+                if (keys[pygame.K_d] or keys[pygame.K_RIGHT]) and cat_rect.right < screen.get_width():
+                    cat_rect.x += cat_speed
+                if keys[pygame.K_e]:
+                    interact_with_npc()
+                if keys[pygame.K_t]:
+                    sleep()
+                    
+            # Call the movement handler
+            handle_movement(keys)
+            # Random events
+            random_event()
+
+            # Render dog and food items if active
+            handle_dog_appearance()
+            draw_food_items()
+
+            # Manage stamina for running
+            manage_stamina(keys)
+
+            # Display stamina bar (optional)
+            pygame.draw.rect(screen, (255, 255, 255), (50, 50, 100, 10))  # Background
+            pygame.draw.rect(screen, (0, 255, 0), (50, 50, stamina, 10))   # Stamina level
+            # Display sleep status if the cat is sleeping
+            if is_sleeping:
+                display_sleep_status()
+                
+            # Scene transitions with transition zones
+            scene_data = scenes[current_scene]
+            transitions = scene_data.get("transitions", {})
+
+            # Define a small margin to detect transition
+            margin = 5
+
+            # Check each possible direction for transition
+            if "left" in transitions:
+                left_zone = transitions["left"]
+                if left_zone.colliderect(cat_rect):
+                    if scenes[current_scene]["left"]:
+                        load_scene(scenes[current_scene]["left"], "left")
+            if "right" in transitions:
+                right_zone = transitions["right"]
+                if right_zone.colliderect(cat_rect):
+                    if scenes[current_scene]["right"]:
+                        load_scene(scenes[current_scene]["right"], "right")
+            if "up" in transitions:
+                up_zone = transitions["up"]
+                if up_zone.colliderect(cat_rect):
+                    if scenes[current_scene]["up"]:
+                        load_scene(scenes[current_scene]["up"], "up")
+            if "down" in transitions:
+                down_zone = transitions["down"]
+                if down_zone.colliderect(cat_rect):
+                    if scenes[current_scene]["down"]:
+                        load_scene(scenes[current_scene]["down"], "down")
+
+            # Game mechanics
+            screen.fill(scene_data["background"])
+
+            # Add the day/night cycle overlay
+            update_day_night_cycle()
+            
+            # Conditional rain effect based on scene weather
+            if scene_data["weather"] == "rain":
+                draw_rain()
+            
+            # Draw transition roads/paths
+            for direction, zone in transitions.items():
+                if direction in ["left", "right"]:
+                    # Draw vertical roads
+                    pygame.draw.rect(screen, (128, 128, 128), zone)
+                elif direction in ["up", "down"]:
+                    # Draw horizontal roads
+                    pygame.draw.rect(screen, (128, 128, 128), zone)
+
+            # Draw cliffs (areas where transitions are not allowed)
+            # Top edge
+            if "up" not in transitions:
+                pygame.draw.rect(screen, (105, 105, 105), (0, 0, screen.get_width(), margin))
+            # Bottom edge
+            if "down" not in transitions:
+                pygame.draw.rect(screen, (105, 105, 105), (0, screen.get_height()-margin, screen.get_width(), margin))
+            # Left edge
+            if "left" not in transitions:
+                pygame.draw.rect(screen, (105, 105, 105), (0, 0, margin, screen.get_height()))
+            # Right edge
+            if "right" not in transitions:
+                pygame.draw.rect(screen, (105, 105, 105), (screen.get_width()-margin, 0, margin, screen.get_height()))
+
+            move_npcs()
+            check_food_collisions()
+            dog_interaction()
+
+            # Draw food and NPCs
+            for food in food_items:
+                pygame.draw.circle(screen, (255, 255, 0), (food.x + 10, food.y + 10), 10)
+            for npc in npc_list:
+                pygame.draw.rect(screen, (255, 0, 0), npc["rect"])
+
+            # Draw cat and dog if active
+            screen.blit(cat_image, cat_rect)
+            if dog_active:
+                screen.blit(dog_image, dog_rect)
+
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_e]:
+                interact_with_npc()     
+                       
+            # Draw hunger bar
+            hunger_bar_width = 200  # Maximum width of the hunger bar
+            hunger_bar_height = 20  # Height of the hunger bar
+            hunger_percentage = hunger / 100  # Calculate hunger as a percentage
+            current_bar_width = int(hunger_bar_width * hunger_percentage)
+
+            # Draw the background (empty) of the bar
+            pygame.draw.rect(screen, (255, 0, 0), (10, 10, hunger_bar_width, hunger_bar_height))
+            # Draw the filled portion of the bar representing current hunger
+            pygame.draw.rect(screen, (0, 255, 0), (10, 10, current_bar_width, hunger_bar_height))
+
+            # Flip display and control frame rate
+            pygame.display.flip()
+            clock.tick(60)
+
+            # Slower hunger depletion rate
+            hunger -= 0.001  # Deplete hunger at a very slow rate
+
+            # If hunger reaches 0, display a message but keep the game running
+            if hunger <= 0:
+                hunger = 0  # Prevent hunger from going negative
+                print("The cat is too hungry to move! Find food to restore energy.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        pygame.quit()
+        sys.exit()
+
+# Updated check_food_collisions to increase hunger when food is eaten
+def check_food_collisions():
+    global hunger
+    for food in food_items[:]:
+        if cat_rect.colliderect(food):
+            food_items.remove(food)
+            hunger = min(100, hunger + 20)  # Increase hunger by 20, maxing out at 100
+            print("Cat ate food! Hunger restored.")
+
+# Updated dog_interaction to reduce hunger and toggle dog_active
+def dog_interaction():
+    global dog_active, hunger
+    if cat_rect.colliderect(dog_rect) and dog_active:
+        # Decrease hunger by 1/3 when the dog is close
+        hunger = max(0, hunger - (hunger // 3))
+        print("Dog nearby! Hunger decreased by one-third.")
+        
+# Adding Day/Night cycle with color overlay
+def update_day_night_cycle():
+    # Get the current hour
+    time_now = datetime.now().hour
+
+    # Set overlay color and transparency based on time
+    if 6 <= time_now < 18:  # Daytime
+        overlay_color = (255, 255, 224, 50)  # Light yellow, semi-transparent
+    else:  # Nighttime
+        overlay_color = (20, 20, 50, 120)  # Dark blue tint, more opaque
+
+    # Create a semi-transparent overlay
+    overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+    overlay.fill(overlay_color)  # Fill with the color and transparency
+    screen.blit(overlay, (0, 0))  # Blit overlay onto screen
+
+def draw_rain():
+    for drop in raindrops:
+        # Draw each raindrop
+        pygame.draw.rect(screen, (0, 0, 255), drop)
+        drop.y += 5  # Speed of raindrop falling
+
+        # Reset drop to the top once it falls off the screen
+        if drop.y > 1080:
+            drop.y = random.randint(-100, 0)
+            drop.x = random.randint(0, 1920)
+
+def interact_with_npc():
+    # Font for interaction text
+    font = pygame.font.Font(None, 36)
+    # Check collision with each NPC
+    for npc in npc_list:
+        if cat_rect.colliderect(npc["rect"]):
+            # Render dialogue text above the NPC
+            text = font.render(npc["dialogue"], True, (255, 255, 255))
+            screen.blit(text, (npc["rect"].x, npc["rect"].y - 40))
+
+is_sleeping = False
+sleep_timer = 0
+
+def sleep():
+    global hunger, is_sleeping, sleep_timer
+    if is_sleeping:
+        # Increment sleep timer and restore hunger slowly
+        sleep_timer += 1
+        hunger += 0.05  # Adjust hunger restoration rate as desired
+        if sleep_timer > 200:  # Cat sleeps for 200 frames
+            is_sleeping = False
+            sleep_timer = 0
+            print("The cat wakes up refreshed!")
+    else:
+        # Start sleeping if 'T' is pressed
+        #if keys[pygame.K_t]:  # Press 'T' to sleep
+        is_sleeping = True
+        print("The cat is sleeping...")
+
+def display_sleep_status():
+    if is_sleeping:
+        font = pygame.font.Font(None, 36)
+        sleep_text = font.render("The cat is sleeping...", True, (255, 255, 255))
+        screen.blit(sleep_text, (cat_rect.x, cat_rect.y - 50))
+
+# Initialize variables
+dog_active = False
+dog_timer = 0
+food_items = []
+
+def random_event():
+    global dog_active, dog_timer
+
+    # 1 in 500 chance of an event occurring each frame
+    if random.randint(1, 500) == 1:
+        event_type = random.choice(["dog", "raining_food"])
+
+        if event_type == "dog":
+            dog_active = True
+            dog_timer = 0  # Start a timer for how long the dog appears
+            print("A dog has appeared!")
+
+        elif event_type == "raining_food":
+            # Spawn 10 food items in random locations
+            for _ in range(10):
+                food_items.append(pygame.Rect(random.randint(100, 1800), random.randint(100, 900), 20, 20))
+            print("It's raining food!")
+
+def handle_dog_appearance():
+    global dog_active, dog_timer
+    if dog_active:
+        dog_timer += 1
+        # Display the dog at a fixed position or near the cat
+        font = pygame.font.Font(None, 36)
+        dog_text = font.render("Woof! A dog has appeared!", True, (255, 0, 0))
+        screen.blit(dog_text, (100, 100))  # Position at top of screen
+
+        # Stop the dog event after 200 frames
+        if dog_timer > 200:
+            dog_active = False
+            dog_timer = 0
+
+def draw_food_items():
+    for food in food_items:
+        pygame.draw.rect(screen, (255, 165, 0), food)  # Draw food items in orange
+
+stamina = 100
+running = False
+
+def manage_stamina(keys):
+    global stamina, running
+    if keys[pygame.K_LSHIFT] and stamina > 0:  # Run if Shift is pressed and stamina available
+        running = True
+        stamina -= 0.5  # Reduce stamina when running
+    else:
+        running = False
+        stamina = min(stamina + 0.2, 100)  # Recover stamina slowly when not running
+
+def handle_movement(keys):
+    global stamina, running
+    
+    # Set sprinting speed and stamina depletion if Shift is held and stamina is available
+    if keys[pygame.K_LSHIFT] and stamina > 0:
+        speed = cat_speed * 2
+        stamina -= 0.5  # Deplete stamina during sprinting
+        running = True
+    else:
+        speed = cat_speed
+        running = False
+        stamina = min(100, stamina + 0.2)  # Regenerate stamina when not sprinting
+
+    # Movement controls with boundary checks
+    if (keys[pygame.K_w] or keys[pygame.K_UP]) and cat_rect.top > 0:
+        cat_rect.y -= speed
+    if (keys[pygame.K_s] or keys[pygame.K_DOWN]) and cat_rect.bottom < screen.get_height():
+        cat_rect.y += speed
+    if (keys[pygame.K_a] or keys[pygame.K_LEFT]) and cat_rect.left > 0:
+        cat_rect.x -= speed
+    if (keys[pygame.K_d] or keys[pygame.K_RIGHT]) and cat_rect.right < screen.get_width():
+        cat_rect.x += speed
+
+    # Draw stamina bar: background and filled bar
+    pygame.draw.rect(screen, (255, 0, 0), (10, 40, 200, 20))  # Background of stamina bar
+    pygame.draw.rect(screen, (0, 255, 0), (10, 40, int(200 * (stamina / 100)), 20))  # Filled portion
+       
+# Run the game
+if __name__ == "__main__":
+    show_main_menu()
+    game_loop()
